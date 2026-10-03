@@ -103,7 +103,7 @@ def test_error_repopulates_name_and_email_but_not_password(client):
     assert "short" not in body.split('id="password"')[1].split(">")[0]
 
 
-@pytest.mark.parametrize("path", ["/", "/login", "/dashboard"])
+@pytest.mark.parametrize("path", ["/", "/login", "/register"])
 def test_other_pages_still_load(client, path):
     assert client.get(path).status_code == 200
 
