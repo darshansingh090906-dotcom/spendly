@@ -26,7 +26,7 @@ def test_get_login_renders_form(client):
 def test_valid_login_sets_session_and_redirects(client):
     response = client.post("/login", data=DEMO)
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/dashboard")
+    assert response.headers["Location"].endswith("/profile")
     with client.session_transaction() as sess:
         assert sess["user_id"] == db.get_user_by_email(DEMO["email"])["id"]
 
@@ -85,14 +85,14 @@ def test_registered_user_can_log_in(client):
         "/login", data={"email": "asha@example.com", "password": "longenough"}
     )
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/dashboard")
+    assert response.headers["Location"].endswith("/profile")
 
 
 def test_login_page_redirects_when_logged_in(client):
     client.post("/login", data=DEMO)
     response = client.get("/login")
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/dashboard")
+    assert response.headers["Location"].endswith("/profile")
 
 
 def test_navbar_reflects_login_state(client):

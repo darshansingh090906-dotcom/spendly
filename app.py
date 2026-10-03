@@ -70,7 +70,7 @@ INVALID_CREDENTIALS_ERROR = "Invalid email or password."
 def login():
     if request.method == "GET":
         if session.get("user_id"):
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("profile"))
         return render_template("login.html")
 
     email = request.form.get("email", "").strip().lower()
@@ -89,34 +89,7 @@ def login():
 
     session.clear()
     session["user_id"] = user["id"]
-    return redirect(url_for("dashboard"))
-
-
-@app.route("/dashboard")
-def dashboard():
-    # Sample data until expenses are stored in a database.
-    stats = [
-        {"label": "Total Liquidity", "value": "₹3,42,800", "note": "↑ +8.4% from last month", "tone": "up"},
-        {"label": "Monthly Outflow", "value": "₹54,200", "note": "Cap: ₹68,000", "tone": "muted"},
-        {"label": "Net Savings Rate", "value": "41.8%", "note": "On track for targets", "tone": "up", "accent": True},
-    ]
-    cash_flow = [
-        {"month": "Oct", "inflow": 75, "expense": 45},
-        {"month": "Nov", "inflow": 80, "expense": 50},
-        {"month": "Dec", "inflow": 95, "expense": 65},
-        {"month": "Jan", "inflow": 85, "expense": 42},
-        {"month": "Feb", "inflow": 90, "expense": 40},
-        {"month": "Mar", "inflow": 100, "expense": 38, "current": True},
-    ]
-    transactions = [
-        {"icon": "🛒", "name": "Nature's Basket", "when": "Today", "category": "Groceries", "amount": "-₹1,420", "tone": "green"},
-        {"icon": "⚡", "name": "State Electricity", "when": "Yesterday", "category": "Utility", "amount": "-₹2,100", "tone": "blue"},
-        {"icon": "🎵", "name": "Spotify Annual", "when": "Mar 22", "category": "Subs", "amount": "-₹1,199", "tone": "purple"},
-        {"icon": "☕", "name": "Blue Tokai Coffee", "when": "Mar 20", "category": "Dining", "amount": "-₹380", "tone": "amber"},
-    ]
-    return render_template(
-        "dashboard.html", stats=stats, cash_flow=cash_flow, transactions=transactions
-    )
+    return redirect(url_for("profile"))
 
 
 @app.route("/logout")
@@ -135,13 +108,49 @@ def privacy():
     return render_template("privacy.html")
 
 
+@app.route("/profile")
+def profile():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    # Hardcoded sample data until the profile is wired to the database.
+    user = {
+        "name": "Demo User",
+        "email": "demo@spendly.com",
+        "initials": "DU",
+        "member_since": "January 2026",
+    }
+    stats = [
+        {"label": "Total Spent", "value": "₹37,564", "note": "Across all time"},
+        {"label": "Transactions", "value": "8", "note": "Logged so far"},
+        {"label": "Top Category", "value": "Bills", "note": "32% of spending"},
+    ]
+    transactions = [
+        {"date": "Mar 22", "description": "Weekly groceries", "category": "Food", "amount": "₹3,240"},
+        {"date": "Mar 18", "description": "Miscellaneous", "category": "Other", "amount": "₹1,500"},
+        {"date": "Mar 15", "description": "New shoes", "category": "Shopping", "amount": "₹8,999"},
+        {"date": "Mar 12", "description": "Movie tickets", "category": "Entertainment", "amount": "₹2,500"},
+        {"date": "Mar 05", "description": "Electricity bill", "category": "Bills", "amount": "₹12,000"},
+    ]
+    categories = [
+        {"name": "Bills", "amount": "₹12,000", "percent": 32},
+        {"name": "Shopping", "amount": "₹8,999", "percent": 24},
+        {"name": "Other", "amount": "₹7,500", "percent": 20},
+        {"name": "Health", "amount": "₹4,575", "percent": 12},
+        {"name": "Food", "amount": "₹4,490", "percent": 12},
+    ]
+    return render_template(
+        "profile.html",
+        user=user,
+        stats=stats,
+        transactions=transactions,
+        categories=categories,
+    )
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/profile")
-def profile():
-    return "Profile page — coming in Step 4"
 
 
 @app.route("/expenses/add")
