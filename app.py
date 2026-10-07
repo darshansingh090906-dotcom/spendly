@@ -1,13 +1,18 @@
 import os
 import sqlite3
+from datetime import date
 
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, abort, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 from database.db import (  # noqa: F401  (get_db used in later steps)
     create_user,
+    get_category_totals,
     get_db,
+    get_expense_summary,
+    get_recent_expenses,
     get_user_by_email,
+    get_user_by_id,
     init_db,
     seed_db,
 )
@@ -108,43 +113,99 @@ def privacy():
     return render_template("privacy.html")
 
 
+def format_currency(amount):
+    """Format an amount as whole rupees with thousands separators."""
+    return f"₹{round(amount):,}"
+
+
+def format_short_date(iso_date):
+    """Turn 2026-03-22 into 'Mar 22'."""
+    return date.fromisoformat(iso_date).strftime("%b %d")
+
+
+def format_member_since(created_at):
+    """Turn a SQLite datetime string into 'January 2026'."""
+    return date.fromisoformat(created_at[:10]).strftime("%B %Y")
+
+
+def get_initials(name):
+    """Return the first letters of the first and last words of a name."""
+    words = name.split()
+    if not words:
+        return "?"
+    if len(words) == 1:
+        return words[0][0].upper()
+    return (words[0][0] + words[-1][0]).upper()
+
+
+def build_stats(summary, category_totals):
+    """Build the summary stat cards for the profile page."""
+    total = summary["total_spent"]
+    if category_totals and total > 0:
+        top = category_totals[0]
+        top_name = top["category"]
+        top_note = f"{round(top['total'] / total * 100)}% of spending"
+    else:
+        top_name, top_note = "—", "No spending yet"
+    return [
+        {"label": "Total Spent", "value": format_currency(total), "note": "Across all time"},
+        {
+            "label": "Transactions",
+            "value": str(summary["transaction_count"]),
+            "note": "Logged so far",
+        },
+        {"label": "Top Category", "value": top_name, "note": top_note},
+    ]
+
+
+def build_categories(category_totals, total):
+    """Build the category breakdown rows with integer percentages."""
+    if total <= 0:
+        return []
+    return [
+        {
+            "name": row["category"],
+            "amount": format_currency(row["total"]),
+            "percent": round(row["total"] / total * 100),
+        }
+        for row in category_totals
+    ]
+
+
 @app.route("/profile")
 def profile():
-    if not session.get("user_id"):
+    user_id = session.get("user_id")
+    if not user_id:
         return redirect(url_for("login"))
 
-    # Hardcoded sample data until the profile is wired to the database.
+    user_row = get_user_by_id(user_id)
+    if user_row is None:
+        abort(404)
+
+    summary = get_expense_summary(user_id)
+    category_totals = get_category_totals(user_id)
+
     user = {
-        "name": "Demo User",
-        "email": "demo@spendly.com",
-        "initials": "DU",
-        "member_since": "January 2026",
+        "name": user_row["name"],
+        "email": user_row["email"],
+        "initials": get_initials(user_row["name"]),
+        "member_since": format_member_since(user_row["created_at"]),
     }
-    stats = [
-        {"label": "Total Spent", "value": "₹37,564", "note": "Across all time"},
-        {"label": "Transactions", "value": "8", "note": "Logged so far"},
-        {"label": "Top Category", "value": "Bills", "note": "32% of spending"},
-    ]
     transactions = [
-        {"date": "Mar 22", "description": "Weekly groceries", "category": "Food", "amount": "₹3,240"},
-        {"date": "Mar 18", "description": "Miscellaneous", "category": "Other", "amount": "₹1,500"},
-        {"date": "Mar 15", "description": "New shoes", "category": "Shopping", "amount": "₹8,999"},
-        {"date": "Mar 12", "description": "Movie tickets", "category": "Entertainment", "amount": "₹2,500"},
-        {"date": "Mar 05", "description": "Electricity bill", "category": "Bills", "amount": "₹12,000"},
-    ]
-    categories = [
-        {"name": "Bills", "amount": "₹12,000", "percent": 32},
-        {"name": "Shopping", "amount": "₹8,999", "percent": 24},
-        {"name": "Other", "amount": "₹7,500", "percent": 20},
-        {"name": "Health", "amount": "₹4,575", "percent": 12},
-        {"name": "Food", "amount": "₹4,490", "percent": 12},
+        {
+            "date": format_short_date(row["date"]),
+            "description": row["description"] or "",
+            "category": row["category"],
+            "amount": format_currency(row["amount"]),
+        }
+        for row in get_recent_expenses(user_id)
     ]
     return render_template(
         "profile.html",
         user=user,
-        stats=stats,
+        stats=build_stats(summary, category_totals),
         transactions=transactions,
-        categories=categories,
+        categories=build_categories(category_totals, summary["total_spent"]),
     )
 
 
