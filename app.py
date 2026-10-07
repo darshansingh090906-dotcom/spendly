@@ -1,6 +1,7 @@
+import calendar
 import os
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Flask, abort, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
@@ -138,21 +139,110 @@ def get_initials(name):
     return (words[0][0] + words[-1][0]).upper()
 
 
-def build_stats(summary, category_totals):
+INVALID_START_ERROR = "Start date is not a valid date. Use YYYY-MM-DD."
+INVALID_END_ERROR = "End date is not a valid date. Use YYYY-MM-DD."
+REVERSED_RANGE_ERROR = "Start date must be on or before the end date."
+
+
+def parse_iso_date(raw):
+    """Return raw as a date if it is strictly YYYY-MM-DD, else None."""
+    try:
+        parsed = date.fromisoformat(raw)
+    except ValueError:
+        return None
+    # Python 3.11+ also accepts forms like 20260301; the DB needs padded ISO.
+    return parsed if parsed.isoformat() == raw else None
+
+
+def parse_date_filters(args):
+    """Read the start/end query parameters into a validated filter dict.
+
+    Never raises: bad input drops that bound and sets an error message.
+    """
+    bounds = {}
+    errors = []
+    for key, message in (("start", INVALID_START_ERROR), ("end", INVALID_END_ERROR)):
+        raw = args.get(key, "").strip()
+        bounds[key] = None
+        if not raw:
+            continue
+        parsed = parse_iso_date(raw)
+        if parsed is None:
+            errors.append(message)
+        else:
+            bounds[key] = parsed.isoformat()
+
+    if bounds["start"] and bounds["end"] and bounds["start"] > bounds["end"]:
+        errors.append(REVERSED_RANGE_ERROR)
+        bounds["start"] = bounds["end"] = None
+
+    return {
+        "start": bounds["start"],
+        "end": bounds["end"],
+        "error": " ".join(errors) or None,
+        "active": bool(bounds["start"] or bounds["end"]),
+    }
+
+
+def format_range_date(iso_date):
+    """Turn 2026-03-22 into 'Mar 22', adding the year if it is not this year."""
+    parsed = date.fromisoformat(iso_date)
+    pattern = "%b %d" if parsed.year == date.today().year else "%b %d, %Y"
+    return parsed.strftime(pattern)
+
+
+def build_range_note(start, end):
+    """Describe an active date range, e.g. 'Mar 01 – Mar 31'."""
+    if start and end:
+        return f"{format_range_date(start)} – {format_range_date(end)}"
+    if start:
+        return f"From {format_range_date(start)}"
+    return f"Up to {format_range_date(end)}"
+
+
+def build_quick_ranges(filters, today=None):
+    """Build the quick-range links (this month, last 30 days, all time)."""
+    today = today or date.today()
+    month_end = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
+    ranges = [
+        ("This month", today.replace(day=1).isoformat(), month_end.isoformat()),
+        ("Last 30 days", (today - timedelta(days=29)).isoformat(), today.isoformat()),
+        ("All time", None, None),
+    ]
+    return [
+        {
+            "label": label,
+            "start": start,
+            "end": end,
+            "active": (filters["start"], filters["end"]) == (start, end),
+        }
+        for label, start, end in ranges
+    ]
+
+
+def build_stats(summary, category_totals, filters=None):
     """Build the summary stat cards for the profile page."""
     total = summary["total_spent"]
+    range_note = None
+    if filters and filters["active"]:
+        range_note = build_range_note(filters["start"], filters["end"])
     if category_totals and total > 0:
         top = category_totals[0]
         top_name = top["category"]
         top_note = f"{round(top['total'] / total * 100)}% of spending"
     else:
-        top_name, top_note = "—", "No spending yet"
+        top_name = "—"
+        top_note = "No spending in this range" if range_note else "No spending yet"
     return [
-        {"label": "Total Spent", "value": format_currency(total), "note": "Across all time"},
+        {
+            "label": "Total Spent",
+            "value": format_currency(total),
+            "note": range_note or "Across all time",
+        },
         {
             "label": "Transactions",
             "value": str(summary["transaction_count"]),
-            "note": "Logged so far",
+            "note": range_note or "Logged so far",
         },
         {"label": "Top Category", "value": top_name, "note": top_note},
     ]
@@ -182,8 +272,10 @@ def profile():
     if user_row is None:
         abort(404)
 
-    summary = get_expense_summary(user_id)
-    category_totals = get_category_totals(user_id)
+    filters = parse_date_filters(request.args)
+    start, end = filters["start"], filters["end"]
+    summary = get_expense_summary(user_id, start, end)
+    category_totals = get_category_totals(user_id, start, end)
 
     user = {
         "name": user_row["name"],
@@ -198,14 +290,16 @@ def profile():
             "category": row["category"],
             "amount": format_currency(row["amount"]),
         }
-        for row in get_recent_expenses(user_id)
+        for row in get_recent_expenses(user_id, start_date=start, end_date=end)
     ]
     return render_template(
         "profile.html",
         user=user,
-        stats=build_stats(summary, category_totals),
+        stats=build_stats(summary, category_totals, filters),
         transactions=transactions,
         categories=build_categories(category_totals, summary["total_spent"]),
+        filters=filters,
+        quick_ranges=build_quick_ranges(filters),
     )
 
 
