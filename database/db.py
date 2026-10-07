@@ -111,3 +111,43 @@ def create_user(name, email, password):
             (name, email, generate_password_hash(password)),
         )
         return cursor.lastrowid
+
+
+def get_user_by_id(user_id):
+    """Return the user row for this id, or None if there is no match."""
+    with closing(get_db()) as conn:
+        return conn.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+
+
+def get_expense_summary(user_id):
+    """Return a row with total_spent and transaction_count for this user."""
+    with closing(get_db()) as conn:
+        return conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS total_spent, "
+            "COUNT(*) AS transaction_count "
+            "FROM expenses WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+
+
+def get_recent_expenses(user_id, limit=10):
+    """Return this user's expenses, newest first."""
+    with closing(get_db()) as conn:
+        return conn.execute(
+            "SELECT id, amount, category, date, description FROM expenses "
+            "WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+
+
+def get_category_totals(user_id):
+    """Return (category, total) rows for this user, highest total first."""
+    with closing(get_db()) as conn:
+        return conn.execute(
+            "SELECT category, SUM(amount) AS total FROM expenses "
+            "WHERE user_id = ? GROUP BY category "
+            "ORDER BY total DESC, category ASC",
+            (user_id,),
+        ).fetchall()

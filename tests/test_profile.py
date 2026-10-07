@@ -91,3 +91,97 @@ def test_empty_states_render_without_rows(client):
 def test_profile_stylesheet_has_no_hex_colours():
     with open("static/css/profile.css", encoding="utf-8") as f:
         assert not re.search(r"#[0-9a-fA-F]{3,8}\b", f.read())
+
+
+# ------------------------------------------------------------------ #
+# Step 5: profile wired to the database                                #
+# ------------------------------------------------------------------ #
+
+def add_expense(user_id, amount, category, day, description="x"):
+    with db.get_db() as conn:
+        conn.execute(
+            "INSERT INTO expenses (user_id, amount, category, date, description) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (user_id, amount, category, day, description),
+        )
+    conn.close()
+
+
+def log_in_as(client, user_id):
+    with client.session_transaction() as sess:
+        sess["user_id"] = user_id
+
+
+def test_profile_shows_database_values(client):
+    log_in(client)
+    body = client.get("/profile").get_data(as_text=True)
+    assert "₹376" in body  # 375.64 rounded
+    assert ">8<" in body
+    assert "Weekly groceries" in body
+
+
+def test_transactions_are_newest_first(client):
+    user = db.get_user_by_email(DEMO["email"])
+    rows = db.get_recent_expenses(user["id"])
+    dates = [r["date"] for r in rows]
+    assert dates == sorted(dates, reverse=True)
+
+
+def test_categories_ordered_and_top_category(client):
+    user = db.get_user_by_email(DEMO["email"])
+    totals = db.get_category_totals(user["id"])
+    values = [r["total"] for r in totals]
+    assert values == sorted(values, reverse=True)
+    assert totals[0]["category"] == "Bills"
+    log_in(client)
+    body = client.get("/profile").get_data(as_text=True)
+    assert "Top Category" in body
+    assert "32% of spending" in body
+
+
+def test_new_user_with_no_expenses_sees_empty_states(client):
+    user_id = db.create_user("New Person", "new@x.com", "password123")
+    log_in_as(client, user_id)
+    response = client.get("/profile")
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "No transactions yet." in body
+    assert "No spending to break down yet." in body
+    assert "₹0" in body
+    assert "NP" in body
+
+
+def test_user_only_sees_own_expenses(client):
+    other_id = db.create_user("Other One", "other@x.com", "password123")
+    add_expense(other_id, 999, "Food", "2026-01-05", "Secret purchase")
+    log_in(client)
+    assert "Secret purchase" not in client.get("/profile").get_data(as_text=True)
+    log_in_as(client, other_id)
+    body = client.get("/profile").get_data(as_text=True)
+    assert "Secret purchase" in body
+    assert "Weekly groceries" not in body
+
+
+def test_missing_session_user_returns_404(client):
+    log_in_as(client, 9999)
+    assert client.get("/profile").status_code == 404
+
+
+def test_db_helpers_summary_and_missing_user(client):
+    user = db.get_user_by_email(DEMO["email"])
+    summary = db.get_expense_summary(user["id"])
+    assert summary["transaction_count"] == 8
+    assert summary["total_spent"] == pytest.approx(375.64)
+    assert db.get_user_by_id(9999) is None
+    empty = db.get_expense_summary(9999)
+    assert empty["total_spent"] == 0 and empty["transaction_count"] == 0
+
+
+def test_profile_route_has_no_sql():
+    import inspect
+
+    import app as app_module
+
+    source = inspect.getsource(app_module.profile)
+    assert "get_db" not in source
+    assert "SELECT" not in source.upper()
