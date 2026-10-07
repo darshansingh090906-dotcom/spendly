@@ -23,6 +23,29 @@
             </div>
         </div>
 
+        <div class="filter-bar">
+            <form class="filter-form" method="get" action="{{ url_for('profile') }}">
+                <div class="filter-field">
+                    <label for="filter-start">From</label>
+                    <input class="form-input" type="date" id="filter-start" name="start" value="{{ filters.start or '' if filters else '' }}">
+                </div>
+                <div class="filter-field">
+                    <label for="filter-end">To</label>
+                    <input class="form-input" type="date" id="filter-end" name="end" value="{{ filters.end or '' if filters else '' }}">
+                </div>
+                <button type="submit" class="btn-primary filter-apply">Apply</button>
+                <a class="filter-clear" href="{{ url_for('profile') }}">Clear</a>
+            </form>
+            <div class="quick-ranges">
+                {% for q in quick_ranges or [] %}
+                <a class="quick-range{% if q.active %} is-active{% endif %}" href="{{ url_for('profile', start=q.start, end=q.end) }}"{% if q.active %} aria-current="true"{% endif %}>{{ q.label }}</a>
+                {% endfor %}
+            </div>
+            {% if filters and filters.error %}
+            <p class="filter-error" role="alert">{{ filters.error }}</p>
+            {% endif %}
+        </div>
+
         <div class="stat-row">
             {% for s in stats %}
             <div class="stat-card">
@@ -64,7 +87,7 @@
                     </table>
                 </div>
                 {% else %}
-                <p class="empty-state">No transactions yet.</p>
+                <p class="empty-state">{% if filters and filters.active %}No transactions in this range.{% else %}No transactions yet.{% endif %}</p>
                 {% endif %}
             </div>
 
@@ -86,7 +109,7 @@
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p class="empty-state">No spending to break down yet.</p>
+                <p class="empty-state">{% if filters and filters.active %}No spending in this range.{% else %}No spending to break down yet.{% endif %}</p>
                 {% endif %}
             </div>
         </div>

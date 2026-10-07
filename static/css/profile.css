@@ -33,6 +33,82 @@
     stroke-linejoin: round;
 }
 
+/* ---- Date filter ---- */
+
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+}
+
+.filter-field { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.filter-field label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+}
+
+.filter-apply { cursor: pointer; }
+
+.filter-clear {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.875rem;
+    color: var(--ink-soft);
+}
+
+.filter-clear:hover { color: var(--accent); }
+
+.quick-ranges { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.quick-range {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    background: var(--paper);
+}
+
+.quick-range:hover { border-color: var(--accent); color: var(--accent); }
+
+.quick-range.is-active {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.filter-bar a:focus-visible,
+.filter-apply:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.filter-error {
+    flex-basis: 100%;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-sm);
+    background: var(--danger-light);
+    color: var(--danger);
+    font-size: 0.875rem;
+}
+
 /* ---- User card ---- */
 
 .profile-card {
@@ -212,4 +288,5 @@
 @media (max-width: 600px) {
     .profile-card { flex-direction: column; text-align: center; }
     .profile-since { justify-content: center; }
+    .filter-form, .filter-field { width: 100%; }
 }
