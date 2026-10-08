@@ -121,6 +121,17 @@ def get_user_by_id(user_id):
         ).fetchone()
 
 
+def create_expense(user_id, amount, category, expense_date, description):
+    """Insert an expense for this user and return the new expense id."""
+    with closing(get_db()) as conn, conn:
+        cursor = conn.execute(
+            "INSERT INTO expenses (user_id, amount, category, date, description) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (user_id, amount, category, expense_date, description),
+        )
+        return cursor.lastrowid
+
+
 def _date_range_clause(start_date, end_date):
     """Return (sql_fragment, params) limiting expenses to an inclusive date range.
 

@@ -179,6 +179,24 @@
     color: var(--ink);
 }
 
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0 0 1rem;
+}
+
+.panel-header .panel-title {
+    margin: 0;
+}
+
+.add-expense-link {
+    padding: 0.4rem 0.9rem;
+    font-size: 0.85rem;
+}
+
 .empty-state {
     padding: 2rem 0;
     text-align: center;
