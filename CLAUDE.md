@@ -99,7 +99,7 @@ pytest -s
 | `POST /login` | Implemented — verifies credentials, sets session, redirects to `/profile` |
 | `GET /logout` | Implemented — clears session, redirects to `/` |
 | `GET /profile` | Implemented — logged-in only, hardcoded sample data until Step 5; redirects to `/login` if logged out |
-| `GET /expenses/add` | Stub — Step 7 |
+| `GET, POST /expenses/add` | Implemented — logged-in only; validates and saves an expense, redirects to `/profile` |
 | `GET /expenses/<id>/edit` | Stub — Step 8 |
 | `GET /expenses/<id>/delete` | Stub — Step 9 |
 

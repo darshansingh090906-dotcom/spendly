@@ -58,10 +58,13 @@
 
         <div class="profile-grid">
             <div class="profile-panel">
-                <h2 class="panel-title">
-                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-                    Transaction History
-                </h2>
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                        Transaction History
+                    </h2>
+                    <a class="btn-primary add-expense-link" href="{{ url_for('add_expense') }}">Add expense</a>
+                </div>
                 {% if transactions %}
                 <div class="table-wrap" role="region" aria-label="Transaction history" tabindex="0">
                     <table class="tx-table">
